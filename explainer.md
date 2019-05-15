@@ -3,7 +3,7 @@
 ## tl;dr
 
 We propose adding a `measureMemory` method to the performance API that estimates the amount of memory used by JavaScript objects of the current JavaScript agent.
-The proposed API improves upon the existing non-standard performance.memory API in the following ways:
+The proposed API improves upon the existing non-standard `performance.memory` API in the following ways:
 
 - **better security and privacy**: only objects that are accessible by the calling context are accounted. No size information leaks from foreign origin contexts and resources;
 - **promise-based interface**: on-demand computation of the result with zero overhead for web pages that do not use the API;
@@ -36,7 +36,7 @@ The interface of the existing `performance.memory` API is synchronous.
 This means that the implementation has to have the result readily available at any time to avoid blocking JavaScript code.
 Maintaining the result may incur performance and memory overhead even for web pages that do not use the API.
 We want to avoid such overhead and allow the implementation to compute the result on-demand and to fold the computation in other operations, e.g. garbage collection.
-For this reason, the interface of our API is asynchronous and is based on `Promise`.
+For this reason, the interface of our API is asynchronous and is based on promises.
 
 In addition to the total size, we want to report per-frame sizes.
 This is useful for isolating memory usage of separate products embedded as iframes in larger web pages.
@@ -77,8 +77,8 @@ console.log(result);
 // Console output:
 {
   total: {
-    jsMemoryEstimate: 240MB, 
-    jsMemoryRange: [120MB, 300MB]
+    jsMemoryEstimate: 240*MB,
+    jsMemoryRange: [120*MB, 300*MB]
   }
 }
 
@@ -87,7 +87,7 @@ console.log(result);
 We do not require the result to be precise.
 The implementation should return an estimate and a range of possible values.
 If the heap contains only one JavaScript agent, then the result is precise and is equal to the heap size (i.e. equivalent to the existing `performance.memory.usedJSHeapSize`).
-The same is the case when the method is called in a worker (because each worker has its own heap).
+The same is the case when the method is called in a worker because each worker has its own heap.
 
 If the result may leak information from a foreign origin, then the promise is rejected with a SecurityError DOMException:
 
@@ -120,24 +120,24 @@ console.log(result);
 {
   current: {
     url: 'https://frameA.foo.com/',
-    jsMemoryEstimate: 10MB,
-    jsMemoryRange: [5MB, 185MB]
+    jsMemoryEstimate: 10*MB,
+    jsMemoryRange: [5*MB, 185*MB]
   },
   other: [
     {
       url: 'https://pageA.foo.com/',
-      jsMemoryEstimate: 200MB,
-      jsMemoryRange: [100MB, 280MB]
+      jsMemoryEstimate: 200*MB,
+      jsMemoryRange: [100*MB, 280*MB]
     },
     {
       url: 'https://frameC.foo.com/',
-      jsMemoryEstimate: 30MB,
-      jsMemoryRange: [15MB, 195MB]
+      jsMemoryEstimate: 30*MB,
+      jsMemoryRange: [15*MB, 195*MB]
     }
   ],
   total: { // current + related: pageA, frameA, frameC
-    jsMemoryEstimate: 240MB, 
-    jsMemoryRange: [120MB, 300MB]
+    jsMemoryEstimate: 240*MB,
+    jsMemoryRange: [120*MB, 300*MB]
   }
 }
 ```
@@ -169,13 +169,13 @@ console.log(result);
 {
   current: {
     url: 'https://webworker.location/',
-    jsMemoryEstimate: 100MB,
-    jsMemoryRange: [100MB, 100MB]
+    jsMemoryEstimate: 100*MB,
+    jsMemoryRange: [100*MB, 100*MB]
   },
   other: [],
   total: {
-    jsMemoryEstimate: 100MB, 
-    jsMemoryRange: [100MB, 100MB]
+    jsMemoryEstimate: 100*MB,
+    jsMemoryRange: [100*MB, 100*MB]
   }
 }
 ```
@@ -225,9 +225,9 @@ If an implementation allocates other opaque resources on the JavaScript heap (e.
 Depending on the JavaScript heap organization the API implementation can be fast or slow:
 - **[fast]** *the total size is requested and the heap contains only one JavaScript agent*: in this case the implementation can simply return the heap size which is usually available as a counter.
 - **[fast]** *the API is invoked in a worker*: since each worker gets its own heap and consists of a single realm, both total size and detailed versions of the API will be fast.
-- **[slow]** - *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception. This case is possible with site-isolation.
-- **[slow]** - *the total size is requested and the heap contains multiple different-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception.
-- **[slow]** - *per-frame sizes are requested in a window agent*: this case may require heap iteration or the implementation throws a NotSupportedError exception.
+- **[slow]** *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception. This case is possible with site-isolation.
+- **[slow]** *the total size is requested and the heap contains multiple different-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception.
+- **[slow]** *per-frame sizes are requested in a window agent*: this case may require heap iteration or the implementation throws a NotSupportedError exception.
 
 In the slow cases, it may be possible to fold the heap iteration into the next garbage collection and thus reduce the cost of the heap iteration. If it is not possible, then it is probably better to throw an exception.
 
@@ -238,12 +238,12 @@ The API can be extended to other types of memory in the future by adding new fie
 ```javascript
 current: {
   url: 'https://frameA.foo.com/',
-  jsMemoryEstimate: 100MB,
-  jsMemoryRange: [100MB, 100MB],
-  domMemoryEstimate: 20MB,
-  domMemoryRange: [10MB, 50MB],
-  gpuMemoryEstimate: 10MB,
-  gpuMemoryRange: [5MB, 15MB],
+  jsMemoryEstimate: 100*MB,
+  jsMemoryRange: [100*MB, 100*MB],
+  domMemoryEstimate: 20*MB,
+  domMemoryRange: [10*MB, 50*MB],
+  gpuMemoryEstimate: 10*MB,
+  gpuMemoryRange: [5*MB, 15*MB],
 },
 ```
 Note that this is currently problematic due to opaque responses from Fetch API.
@@ -252,7 +252,7 @@ Note that this is currently problematic due to opaque responses from Fetch API.
 
 - There was a [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) to add a `performance.getMemoryEstimateUASpecific` API that measures process memory retained by the current JavaScript agent.
 The memory measurement is comprehensive and intended to account all resources: DOM nodes, graphics, web worker memory, etc.
-The authors list per-frame memory accounting as an explicit non-goal. 
+The authors list per-frame memory accounting as an explicit non-goal.
 The proposal is [is currently blocked](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) by information leak of opaque resources.
 Note that our proposal and this proposal are complementary and can reuse the same interface: e.g. the process memory can be returned as a `processMemoryEstimate` field of the result.
 
