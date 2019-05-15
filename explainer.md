@@ -27,7 +27,7 @@ We allow the implementation to throw a `SecurityError` exception if it cannot gu
 
 Another security related constraint that we set for our API is that it must not leak the size of foreign origin resources.
 Specifically, opaque response data from the Fetch API must not be included in the result.
-Note that this issue [is currently blocking](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) an alternative [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) for a memory measurement API that reports the process memory.
+Note that this issue [is currently blocking](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) another [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) for a memory measurement API that reports the process memory.
 What is different in our proposal is that it accounts only the JavaScript memory instead of the process memory.
 We expect that most implementations do not allocate opaque response data on the JavaScript heap (because the body field of an opaque response [is set to null](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect) by the spec).
 So for most implementation this is not an issue. Other implementations are required to throw a `SecurityError` exception if opaque response data is present on the JavaScript heap.
@@ -87,9 +87,9 @@ console.log(result);
 We do not require the result to be precise.
 The implementation should return an estimate and a range of possible values.
 If the heap contains only one JavaScript agent, then the result is precise and is equal to the heap size (i.e. equivalent to the existing `performance.memory.usedJSHeapSize`).
-The same is the case when the method is called in a worker because each worker has its own heap.
+The same is the case when the API is invoked in a worker because each worker has its own heap.
 
-If the result may leak information from a foreign origin, then the promise is rejected with a SecurityError DOMException:
+If the result may leak information from a foreign origin, then the promise is rejected with a `SecurityError` exception:
 
 ```javascript
 try {
@@ -101,14 +101,17 @@ try {
 }
 ```
 
+
+### Optional per-frame sizes
+
 The caller can request per-frame sizes by passing a `{detailed: true}` option.
-We explain this case on an example with two web pages and three iframes shown in Figure 1.
+We explain this case on an example with two web pages and three iframes shown in figure below.
 Let’s assume that the top-level browsing contexts `pageA.foo.com` and `pageB.foo.com` are not related, i.e. one is not an opener of another.
-Thus there are two JavaScript agents consisting of five JavaScript realms with total memory usage of 360MB.
+Thus there are two JavaScript agents consisting of five JavaScript [realms](https://tc39.github.io/ecma262/#sec-code-realms) with the total memory usage of 360MB.
 
 ![Figure 1. Two web pages with three iframes and their memory usage.](/example.png)
 
-Invocation of the API in frameA returns the size estimates for the three JavaScript realms in the current agent:
+Invocation of the API in `frameA` returns the size estimates for the three JavaScript realms in the current agent:
 
 ```javascript
 // In frameA.foo.com context:
@@ -147,8 +150,8 @@ For some heap objects this may be computationally expensive or even impossible (
 The implementation is free to choose any heuristic for attributing such objects.
 
 In the given example we assume that the implementation can infer the realm for 50% of the heap.
-Then 180MB are unattributed. We know that frameA uses at least 5MB and at most 185MB.
-The implementation may decide to estimate the size of frameA by distributing the unattributed 180MB proportionally to the attributed frame sizes:
+Then 180MB are unattributed. We know that `frameA` uses at least 5MB and at most 185MB.
+The implementation may decide to estimate the size of `frameA` by distributing the unattributed 180MB proportionally to the attributed frame sizes:
 
 ```javascript
 estimateFrameA = 5 + 180 * (5 / (5 + 100 + 15 + 50 + 10)) = 10
