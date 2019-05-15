@@ -2,7 +2,7 @@
 
 ## tl;dr
 
-We propose adding a `measureMemory` method to the performance API that estimates the amount of memory used by JavaScript objects of the current JavaScript agent.
+We propose adding a `measureMemory` method to the performance API that estimates the amount of memory used by JavaScript objects of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism).
 The proposed API improves upon the existing non-standard `performance.memory` API in the following ways:
 
 - **better security and privacy**: only objects that are accessible by the calling context are accounted. No size information leaks from foreign origin contexts and resources;
@@ -10,7 +10,7 @@ The proposed API improves upon the existing non-standard `performance.memory` AP
 - **stable results**: other JavaScript agents that happen to share the same heap due to implementation details of the browser do not affect the results.
 - optional support for **per-frame memory** breakdown of the result;
 
-The proposed API is limited to JavaScript memory, but it can be extended to other memory (DOM, GPU, process) retained by the JavaScript agent in future by adding new fields to the result.
+The proposed API is limited to JavaScript memory due to security reasons, but it can be extended to other memory (DOM, GPU, process) retained by the JavaScript agent in future by adding new fields to the result once the security issues are resolved.
 
 ## Problem
 
@@ -150,8 +150,8 @@ In the given example we assume that the implementation can infer the realm for 5
 Then 180MB are unattributed. We know that frameA uses at least 5MB and at most 185MB.
 The implementation may decide to estimate the size of frameA by distributing the unattributed 180MB proportionally to the attributed frame sizes:
 
-```
-estimateFrameA = 5MB + 180MB * (5MB / (5MB + 100MB + 15MB + 50MB + 10MB)) = 10MB
+```javascript
+estimateFrameA = 5 + 180 * (5 / (5 + 100 + 15 + 50 + 10)) = 10
 ```
 
 A worker agent has a single realm.
@@ -250,7 +250,7 @@ Note that this is currently problematic due to opaque responses from Fetch API.
 
 ## Related Work
 
-- There was a [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) to add a `performance.getMemoryEstimateUASpecific` API that measures process memory retained by the current JavaScript agent.
+- There is a [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) to add a `performance.getMemoryEstimateUASpecific` API that measures process memory retained by the current JavaScript agent.
 The memory measurement is comprehensive and intended to account all resources: DOM nodes, graphics, web worker memory, etc.
 The authors list per-frame memory accounting as an explicit non-goal.
 The proposal is [is currently blocked](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) by information leak of opaque resources.
