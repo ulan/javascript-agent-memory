@@ -244,12 +244,12 @@ If resources are allocated on the JavaScript heap, then there are two solutions:
 ## Performance Considerations
 
 The performance of the API depends on how the information leak sources described in the previous section are handled.
-If resources of platform objects are allocated on JavaScript heap, then the implementation will have to iterate the heap or throw a SecurityError exception.
+If resources of platform objects are allocated on JavaScript heap, then the implementation will have to iterate the heap or throw a `SecurityError` exception.
 Otherwise, we have the following cases:
 - **[fast]** *the total size is requested and the heap contains only one JavaScript agent*: in this case the implementation can simply return the heap size which is usually available as a counter.
 - **[fast]** *the API is invoked in a worker*: since each worker gets its own heap and consists of a single realm, both total size and detailed versions of the API will be fast.
-- **[slow]** *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception. This case is possible with site-isolation.
-- **[slow]** *the total size is requested and the heap contains multiple different-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception.
+- **[slow]** *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a `SecurityError` exception. This case is possible with site-isolation.
+- **[slow]** *the total size is requested and the heap contains multiple different-site JavaScript agents*: this case may require heap iteration or the implementation throws a `SecurityError` exception.
 - **[slow]** *per-frame sizes are requested in a window agent*: this case may require heap iteration or the implementation throws a NotSupportedError exception.
 
 In the slow cases, it may be possible to fold the heap iteration into the next garbage collection and thus reduce the cost of the heap iteration. If it is not possible, then it is probably better to throw an exception.
