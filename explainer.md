@@ -5,20 +5,39 @@
 We propose adding a `measureMemory` method to the performance API that estimates the amount of memory used by JavaScript objects of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism).
 The proposed API improves upon the existing non-standard `performance.memory` API in the following ways:
 
-- **better security and privacy**: only objects that are accessible by the calling context are accounted. No size information leaks from foreign origin contexts and resources;
-- **promise-based interface**: on-demand computation of the result with zero overhead for web pages that do not use the API;
-- **stable results**: other JavaScript agents that happen to share the same heap due to implementation details of the browser do not affect the results.
+- **better security and privacy**: only objects that the current JavaScript agent can access are accounted. No size information leaks from foreign origin contexts and resources;;
+- **promise-based interface**: it allows the implementation to do more work on demand without janking the web page. No overhead for web pages that do not use the API;
+- **stable results**: other JavaScript agents that happen to share the same heap due to implementation details of the browser do not affect the results;
 - optional support for **per-frame memory** breakdown of the result;
 
-The proposed API is limited to JavaScript memory due to security reasons, but it can be extended to other memory (DOM, GPU, process) retained by the JavaScript agent in future by adding new fields to the result once the security issues are resolved.
+The proposed API is limited to JavaScript memory, but it can be extended to other memory (DOM, GPU, process) retained by the JavaScript agent in future by adding new fields to the result.
 
 ## Problem
 
 As shown in [this collection of use cases](https://docs.google.com/document/d/1u21oa3-R1FhHgrPsh8-mpb8dIFVj60wcFiM5FFrfIQA/edit#heading=h.6si74uwp7sq8) there is a need for an API that measures memory footprint of web pages in production.
 The use cases include a) analysis of correlation between memory usage and user metrics, b) detection of memory regressions, c) evaluation of feature launches in A/B tests, d) memory optimization.
 Currently web developers resort to the non-standard `performance.memory` API that [is used in 20%](https://www.chromestatus.com/metrics/feature/timeline/popularity/884) of page loads in Chrome.
-The existing API has multiple issues that make its standardization difficult.
 
+## Related Work
+
+### Process memory API
+
+There is a proposal for [comprehensive memory measurement API](https://github.com/WICG/performance-memory/blob/master/explainer.md) that covers different types of memory: JavaScript, DOM, CSS, Web Workers spawned by the page, etc.
+Effectively the API measures the memory footprint of the whole OS process.
+The wide scope of the API is problematic for security because it is difficult to precisely specify what the API is allowed to measure.
+The proposal [is currently blocked](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) by information leak of opaque resources.
+
+In contrast to that our proposal is limited to JavaScript memory of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism).
+Note that the two proposals are complementary and can share the same interface. For example, the interface proposed here can be extended to include a `processMemory` field once the process memory proposal is unblocked in future.
+
+### Memory pressure API
+There is a proposal for [memory pressure API](https://github.com/WICG/memory-pressure/blob/master/explainer.md) that notifies the application about system memory pressure events.
+This gives the application an opportunity to change its behavior at runtime to reduce its memory usage if possible e.g. by freeing up caches and unused resources.
+Our proposal has different [use cases](https://docs.google.com/document/d/1u21oa3-R1FhHgrPsh8-mpb8dIFVj60wcFiM5FFrfIQA/edit#heading=h.6si74uwp7sq8) such as collecting telemetry data and detecting regressions.
+Thus the two proposals are orthogonal.
+
+## Requirements and constraints
+The existing non-standard `performance.memory` API has multiple issues that make its standardization difficult.
 The main issue is that the API reports the size of the whole JavaScript heap, which makes it sensitive to the way the browser assigns JavaScript heaps to web pages.
 This dependency on the implementation increases variability of the results, e.g. if unrelated web pages share the same heap.
 More importantly, it introduces a channel for leaking size information between different origin web pages.
@@ -27,16 +46,12 @@ We allow the implementation to throw a `SecurityError` exception if it cannot gu
 
 Another security related constraint that we set for our API is that it must not leak the size of foreign origin resources.
 Specifically, opaque response data from the Fetch API must not be included in the result.
-Note that this issue [is currently blocking](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) another [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) for a memory measurement API that reports the process memory.
-What is different in our proposal is that it accounts only the JavaScript memory instead of the process memory.
-We expect that most implementations do not allocate opaque response data on the JavaScript heap (because the body field of an opaque response [is set to null](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect) by the spec).
-So for most implementation this is not an issue. Other implementations are required to throw a `SecurityError` exception if opaque response data is present on the JavaScript heap.
 
-The interface of the existing `performance.memory` API is synchronous.
-This means that the implementation has to have the result readily available at any time to avoid blocking JavaScript code.
+The interface of the existing `performance.memory` API is synchronous, which restricts the amount of work an implementation can do on invocation.
+The implementation has to have the result readily available at any time to avoid blocking JavaScript code.
 Maintaining the result may incur performance and memory overhead even for web pages that do not use the API.
 We want to avoid such overhead and allow the implementation to compute the result on-demand and to fold the computation in other operations, e.g. garbage collection.
-For this reason, the interface of our API is asynchronous and is based on promises.
+For this reason, the interface of our API is asynchronous and is based on Promises.
 
 In addition to the total size, we want to report per-frame sizes.
 This is useful for isolating memory usage of separate products embedded as iframes in larger web pages.
@@ -45,7 +60,7 @@ Since computing per-frame sizes can be expensive and not all web pages need it, 
 An implementation is allowed to throw a `NotSupportedError` exception if computing per-frame sizes is infeasible.
 
 While the current proposal is limited to only to JavaScript memory, we want to allow future extensions to other types of memory such as DOM, CSS, GPU, process memory.
-For this reason, the API has a generic name: `measureMemory` instead of `measureJavaScriptMemory`.
+Such extensions are currently not possible because of security issues such as opaque response size leaks.
 
 ## Summary of the requirements and constraints
 
@@ -67,6 +82,8 @@ We can change the name to `performance.measureMemoryUASpecific` if it is critica
 ## API Proposal
 
 The API consists of a single method `performance.measureMemory` that accepts an optional argument indicating whether to include per-frame sizes or not.
+[We can change the name to `performance.measureMemoryUASpecific` if it is critical to highlight that the results are not comparable for different browsers]
+
 By default the method estimates the total size of all objects in the JavaScript heap that the current calling context can access:
 
 ```javascript
@@ -86,7 +103,7 @@ console.log(result);
 
 We do not require the result to be precise.
 The implementation should return an estimate and a range of possible values.
-If the heap contains only one JavaScript agent, then the result is precise and is equal to the heap size (i.e. equivalent to the existing `performance.memory.usedJSHeapSize`).
+If the heap contains only one JavaScript agent, then the result is equal to the heap size i.e. similar to the existing `performance.memory.usedJSHeapSize`.
 The same is the case when the API is invoked in a worker because each worker has its own heap.
 
 If the result may leak information from a foreign origin, then the promise is rejected with a `SecurityError` exception:
@@ -199,33 +216,36 @@ try {
 
 ## Security Considerations
 
-As was mentioned before, the API requires that an implementation accounts only objects that the calling context can access and does not leak information about foreign origin objects.
-An implementation is free to account internal system objects (e.g. hidden classes, closure environments) on the heap as long as that does not leak cross-origin size information.
-In this section we look at three potential sources of information leak and show how an implementation can address them.
+An implementation of the API should account only the JavaScript objects that the calling JavaScript agent can access.
+That is the objects that can be read or called from one of the realms of the agent.
+Additionally, the implementation is free to account internal system objects on the JavaScript heap that are necessary for supporting the accounted JavaScript objects (e.g. backing stores of arrays, hidden classes, closure environments, code objects) as long as that does not leak foreign origin information.
 
-**Source 1: foreign-origin browsing contexts.**
-If an implementation maps different-origin agents to different JavaScript heaps, then this is not an issue.
+If the implementation cannot guarantee that the result is not tainted with foreign origin information, then it is allowed to throw a `SecurityError` exception.
+The implementation is also allowed to add noise to the result and limit the rate of result computation.
+
+In the rest of this section we look at two potential sources of information leak and show how an implementation can address them.
+
+**Source 1: other JavaScript agents.**
+If the implementation creates a separate JavaScript heap for each JavaScript agent, then this is not an issue.
 Otherwise, there are two solutions:
-- throw a `SecurityError` exception if two or more different origins were ever loaded on the heap.
-Note this produces useful results for web pages that do not embed different-origin frames.
-- iterate the heap and account only the objects that are accessible from the calling context.
-Note that objects shared between agents must be reported as if they were private. In other words, an implementation must not leak information of whether an object is shared or not.
+- throw a `SecurityError` exception if two or more different agents were ever loaded on the current heap.
+Note this produces useful results for web pages that do not embed different-origin iframes.
+- iterate the heap and account only the objects that are accessible from the calling agent.
+Note that objects shared between agents must be reported as if they were private.
+In other words, an implementation must not leak information of whether an object is shared or not.
 
-**Source 2: opaque responses from Fetch API.**
-If the fetched data is not allocated on the JavaScript heap for opaque responses, then this is not an issue.
-This is likely the case for most implementations because the spec [sets](https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect) the body field of an opaque response to `null`.
-Otherwise, there are two solutions:
-- throw a `SecurityError` exception if there was a fetch request with opaque response tainting.
-- iterate the heap and account only the objects that are accessible from the calling context.
-Note that the data of an opaque resource is excluded from the result because the calling context cannot access it
-
-
-**Source 3: other opaque resources.**
-If an implementation allocates other opaque resources on the JavaScript heap (e.g. image data, media data, cookies), then they should be handled similar to Source 2.
+**Source 2: [platform objects](https://heycam.github.io/webidl/#dfn-platform-object) (JavaScript objects that implement Web IDL interfaces).**
+If the implementation stores the resources associated with a platform object outside the JavaScript heap, then this is not an issue.
+Otherwise, the API may leak size information of opaque resources and resources that are guarded by security checks (e.g. opaque responses of Fetch API, image data of canvas elements).
+If resources are allocated on the JavaScript heap, then there are two solutions:
+- throw a `SecurityError` exception.
+- iterate the heap and account platform objects without the resources associated with them.
 
 ## Performance Considerations
 
-Depending on the JavaScript heap organization the API implementation can be fast or slow:
+The performance of the API depends on how the information leak sources described in the previous section are handled.
+If resources of platform objects are allocated on JavaScript heap, then the implementation will have to iterate the heap or throw a SecurityError exception.
+Otherwise, we have the following cases:
 - **[fast]** *the total size is requested and the heap contains only one JavaScript agent*: in this case the implementation can simply return the heap size which is usually available as a counter.
 - **[fast]** *the API is invoked in a worker*: since each worker gets its own heap and consists of a single realm, both total size and detailed versions of the API will be fast.
 - **[slow]** *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a SecurityError exception. This case is possible with site-isolation.
@@ -250,13 +270,3 @@ current: {
 },
 ```
 Note that this is currently problematic due to opaque responses from Fetch API.
-
-## Related Work
-
-- There is a [proposal](https://github.com/WICG/performance-memory/blob/master/explainer.md) to add a `performance.getMemoryEstimateUASpecific` API that measures process memory retained by the current JavaScript agent.
-The memory measurement is comprehensive and intended to account all resources: DOM nodes, graphics, web worker memory, etc.
-The authors list per-frame memory accounting as an explicit non-goal.
-The proposal is [is currently blocked](https://github.com/mozilla/standards-positions/issues/85#issuecomment-426382208) by information leak of opaque resources.
-Note that our proposal and this proposal are complementary and can reuse the same interface: e.g. the process memory can be returned as a `processMemoryEstimate` field of the result.
-
-- The [precise MemoryMeasurement feature](https://www.chromestatus.com/feature/5128919925653504) lifts quantization and delay restrictions for processes locked to a site.
