@@ -7,7 +7,7 @@ Last updated: 2019.05.31
 We propose adding a `measureMemory` method to the performance API that estimates the amount JavaScript objects that the calling context can access.
 The proposed API improves upon the existing non-standard `performance.memory` API in the following ways:
 
-- **better security and privacy**: only objects that the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism) can access are accounted. No size information leaks from foreign origin contexts and resources;
+- **better security and privacy**: only objects of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism) that have the same origin as the calling context are accounted. No size information leaks from foreign origin contexts and resources;
 - **promise-based interface**: it allows the implementation to do more work on demand without janking the web page. No overhead for web pages that do not use the API;
 - **stable results**: other JavaScript agents that happen to share the same heap due to implementation details of the browser do not affect the results;
 - optional support for **per-frame memory** breakdown of the result;
