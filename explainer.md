@@ -1,11 +1,13 @@
 # JavaScript agent memory API
 
+Last updated: 2019.05.31
+
 ## tl;dr
 
-We propose adding a `measureMemory` method to the performance API that estimates the amount of memory used by JavaScript objects of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism).
+We propose adding a `measureMemory` method to the performance API that estimates the amount JavaScript objects that the calling context can access.
 The proposed API improves upon the existing non-standard `performance.memory` API in the following ways:
 
-- **better security and privacy**: only objects that the current JavaScript agent can access are accounted. No size information leaks from foreign origin contexts and resources;
+- **better security and privacy**: only objects that the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism) can access are accounted. No size information leaks from foreign origin contexts and resources;
 - **promise-based interface**: it allows the implementation to do more work on demand without janking the web page. No overhead for web pages that do not use the API;
 - **stable results**: other JavaScript agents that happen to share the same heap due to implementation details of the browser do not affect the results;
 - optional support for **per-frame memory** breakdown of the result;
@@ -84,7 +86,7 @@ We can change the name to `performance.measureMemoryUASpecific` if it is critica
 The API consists of a single method `performance.measureMemory` that accepts an optional argument indicating whether to include per-frame sizes or not.
 [We can change the name to `performance.measureMemoryUASpecific` if it is critical to highlight that the results are not comparable for different browsers]
 
-By default the method estimates the total size of all objects in the JavaScript heap that the current calling context can access:
+By default the method estimates the total size of all objects on the JavaScript heap that the current calling context can access:
 
 ```javascript
 const result = await performance.measureMemory();
@@ -94,8 +96,8 @@ console.log(result);
 // Console output:
 {
   total: {
-    jsMemoryEstimate: 240*MB,
-    jsMemoryRange: [120*MB, 300*MB]
+    jsMemoryEstimate: 200*MB,
+    jsMemoryRange: [100*MB, 300*MB]
   }
 }
 
@@ -103,10 +105,21 @@ console.log(result);
 
 We do not require the result to be precise.
 The implementation should return an estimate and a range of possible values.
-If the heap contains only one JavaScript agent, then the result is equal to the heap size i.e. similar to the existing `performance.memory.usedJSHeapSize`.
+If the heap contains a single JavaScript agent consisting of same-origin realms, then the result is equal to the heap size i.e. similar to the existing `performance.memory.usedJSHeapSize`.
 The same is the case when the API is invoked in a worker because each worker has its own heap.
 
-If the result may leak information from a foreign origin, then the promise is rejected with a `SecurityError` exception:
+If there are multiple JavaScript agents or different-origin realms, then the API accounts only the objects of the same-origin realms that the current context can synchronously script with.
+We illustrate that on an example with two web pages and four iframes shown in figure below.
+Let’s assume that the top-level browsing contexts `foo.com/page1` and `foo.com/page2` are not related, i.e. one is not an opener of another. Thus there are two JavaScript agents consisting of six realms with total memory usage of 500MB
+
+![Figure 1. Two web pages with four iframes and their memory usage.](/example.png)
+
+Invoking the API in the context of the `frame1` accounts only the objects of the `page1` and the `frame1`.
+The result will be around 240MB.
+Objects of the `page2` and the `frame4` are skipped because they belong to a different JavaScript agent.
+The `frame3` belongs to the same JavaScript agent and has the same origin as the `frame1`, but it is skipped because it is embedded in a foreign-origin frame.
+
+The implementation is allowed to reject the promise with a `SecurityError` exception if it cannot guarantee that the result does not leak information from a foreign origin:
 
 ```javascript
 try {
@@ -122,13 +135,7 @@ try {
 ### Optional per-frame sizes
 
 The caller can request per-frame sizes by passing a `{detailed: true}` option.
-We explain this case on an example with two web pages and three iframes shown in figure below.
-Let’s assume that the top-level browsing contexts `pageA.foo.com` and `pageB.foo.com` are not related, i.e. one is not an opener of another.
-Thus there are two JavaScript agents consisting of five JavaScript [realms](https://tc39.github.io/ecma262/#sec-code-realms) with the total memory usage of 360MB.
-
-![Figure 1. Two web pages with three iframes and their memory usage.](/example.png)
-
-Invocation of the API in `frameA` returns the size estimates for the three JavaScript realms in the current agent:
+Invocation of the API in the `frame1` of the previous example returns the size estimates for the same-origin frames accessible from the `frame1`:
 
 ```javascript
 // In frameA.foo.com context:
@@ -139,43 +146,26 @@ console.log(result);
 // Console output:
 {
   current: {
-    url: 'https://frameA.foo.com/',
-    jsMemoryEstimate: 10*MB,
-    jsMemoryRange: [5*MB, 185*MB]
+    url: 'https://foo.com/frame1',
+    jsMemoryEstimate: 30*MB,
+    jsMemoryRange: [20*MB, 300*MB]
   },
   other: [
     {
-      url: 'https://pageA.foo.com/',
-      jsMemoryEstimate: 200*MB,
-      jsMemoryRange: [100*MB, 280*MB]
-    },
-    {
-      url: 'https://frameC.foo.com/',
-      jsMemoryEstimate: 30*MB,
-      jsMemoryRange: [15*MB, 195*MB]
+      url: 'https://foo.com/page1',
+      jsMemoryEstimate: 170*MB,
+      jsMemoryRange: [80*MB, 300*MB]
     }
   ],
-  total: { // current + related: pageA, frameA, frameC
-    jsMemoryEstimate: 240*MB,
-    jsMemoryRange: [120*MB, 300*MB]
+  total: { // frame1 + page1
+    jsMemoryEstimate: 100*MB,
+    jsMemoryRange: [100*MB, 300*MB]
   }
 }
 ```
 
-In order to compute the estimate the implementation has to attribute each heap object to its realm.
-For some heap objects this may be computationally expensive or even impossible (e.g. for shared objects).
-The implementation is free to choose any heuristic for attributing such objects.
-
-In the given example we assume that the implementation can infer the realm for 50% of the heap.
-Then 180MB are unattributed. We know that `frameA` uses at least 5MB and at most 185MB.
-The implementation may decide to estimate the size of `frameA` by distributing the unattributed 180MB proportionally to the attributed frame sizes:
-
-```javascript
-estimateFrameA = 5 + 180 * (5 / (5 + 100 + 15 + 50 + 10)) = 10
-```
-
 A worker agent has a single realm.
-Thus, the “other” field of the result is empty for workers.
+Thus, the `other` field of the result is empty for workers.
 The current and the total fields have matching values.
 For most implementation there will be no estimation error because each worker gets it own heap.
 
@@ -216,8 +206,8 @@ try {
 
 ## Security Considerations
 
-An implementation of the API should account only the JavaScript objects that the calling JavaScript agent can access.
-That is the objects that can be read or called from one of the realms of the agent.
+An implementation of the API should account only the JavaScript objects that the calling context can access.
+That is the objects that can be read or called from the current realm.
 Additionally, the implementation is free to account internal system objects on the JavaScript heap that are necessary for supporting the accounted JavaScript objects (e.g. backing stores of arrays, hidden classes, closure environments, code objects) as long as that does not leak foreign origin information.
 
 If the implementation cannot guarantee that the result is not tainted with foreign origin information, then it is allowed to throw a `SecurityError` exception.
@@ -225,12 +215,15 @@ The implementation is also allowed to add noise to the result and limit the rate
 
 In the rest of this section we look at two potential sources of information leak and show how an implementation can address them.
 
-**Source 1: other JavaScript agents.**
-If the implementation creates a separate JavaScript heap for each JavaScript agent, then this is not an issue.
-Otherwise, there are two solutions:
-- throw a `SecurityError` exception if two or more different agents were ever loaded on the current heap.
+**Source 1: other JavaScript agents and foreign-origin realms.**
+If the implementation creates a separate JavaScript heap for each JavaScript agent and the current JavaScript agent consists of only the same-origin realms, then this is not an issue.
+Otherwise, the following solutions are possible
+- throw a `SecurityError` exception if two or more different origins were ever loaded on the current heap.
 Note this produces useful results for web pages that do not embed different-origin iframes.
 - iterate the heap and account only the objects that are accessible from the calling agent.
+- keep track of realm sizes at object allocation.
+- segregate objects on the heap by realms.
+
 Note that objects shared between agents must be reported as if they were private.
 In other words, an implementation must not leak information of whether an object is shared or not.
 
@@ -246,10 +239,9 @@ If resources are allocated on the JavaScript heap, then there are two solutions:
 The performance of the API depends on how the information leak sources described in the previous section are handled.
 If resources of platform objects are allocated on JavaScript heap, then the implementation will have to iterate the heap or throw a `SecurityError` exception.
 Otherwise, we have the following cases:
-- **[fast]** *the total size is requested and the heap contains only one JavaScript agent*: in this case the implementation can simply return the heap size which is usually available as a counter.
+- **[fast]** *the total size is requested and the heap contains only one JavaScript agent consisting of same-origin realms *: in this case the implementation can simply return the heap size which is usually available as a counter.
 - **[fast]** *the API is invoked in a worker*: since each worker gets its own heap and consists of a single realm, both total size and detailed versions of the API will be fast.
-- **[slow]** *the total size is requested and the heap contains multiple same-site JavaScript agents*: this case may require heap iteration or the implementation throws a `SecurityError` exception. This case is possible with site-isolation.
-- **[slow]** *the total size is requested and the heap contains multiple different-site JavaScript agents*: this case may require heap iteration or the implementation throws a `SecurityError` exception.
+- **[slow]** *the total size is requested and the heap contains different-origin realms*: this case may require heap iteration or the implementation throws a `SecurityError` exception.
 - **[slow]** *per-frame sizes are requested in a window agent*: this case may require heap iteration or the implementation throws a NotSupportedError exception.
 
 In the slow cases, it may be possible to fold the heap iteration into the next garbage collection and thus reduce the cost of the heap iteration. If it is not possible, then it is probably better to throw an exception.
