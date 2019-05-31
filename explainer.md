@@ -114,10 +114,10 @@ Let’s assume that the top-level browsing contexts `foo.com/page1` and `foo.com
 
 ![Figure 1. Two web pages with four iframes and their memory usage.](/example.png)
 
-Invoking the API in the context of the `frame1` accounts only the objects of the `page1` and the `frame1`.
+Invoking the API in the context of `frame1` accounts only the objects of `page1` and `frame1`.
 The result will be around 240MB.
-Objects of the `page2` and the `frame4` are skipped because they belong to a different JavaScript agent.
-The `frame3` belongs to the same JavaScript agent and has the same origin as the `frame1`, but it is skipped because it is embedded in a foreign-origin frame.
+Objects of `page2` and `frame4` are skipped because they belong to a different JavaScript agent.
+Objects of `frame3` belong to the same JavaScript agent and have the same origin as `frame1`, but they are skipped because `frame3` is embedded in a foreign-origin frame.
 
 The implementation is allowed to reject the promise with a `SecurityError` exception if it cannot guarantee that the result does not leak information from a foreign origin:
 
@@ -135,7 +135,7 @@ try {
 ### Optional per-frame sizes
 
 The caller can request per-frame sizes by passing a `{detailed: true}` option.
-Invocation of the API in the `frame1` of the previous example returns the size estimates for the same-origin frames accessible from the `frame1`:
+Invocation of the API in `frame1` of the previous example returns the size estimates for the same-origin frames accessible from `frame1`:
 
 ```javascript
 // In frameA.foo.com context:
