@@ -1,6 +1,6 @@
 # JavaScript agent memory API
 
-Last updated: 2019.05.31
+Last updated: 2019.06.04
 
 ## tl;dr
 
@@ -119,7 +119,7 @@ The result will be around 240MB.
 Objects of `page2` and `frame4` are skipped because they belong to a different JavaScript agent.
 Objects of `frame3` belong to the same JavaScript agent and have the same origin as `frame1`, but they are skipped because `frame3` is embedded in a foreign-origin frame.
 
-The implementation is allowed to reject the promise with a `SecurityError` exception if it cannot guarantee that the result does not leak information from a foreign origin:
+The implementation must reject the promise with a `SecurityError` exception if it cannot guarantee that the result does not leak information from a foreign origin:
 
 ```javascript
 try {
@@ -211,7 +211,6 @@ That is the objects that can be read or called from the current realm.
 Additionally, the implementation is free to account internal system objects on the JavaScript heap that are necessary for supporting the accounted JavaScript objects (e.g. backing stores of arrays, hidden classes, closure environments, code objects) as long as that does not leak foreign origin information.
 
 If the implementation cannot guarantee that the result is not tainted with foreign origin information, then it is allowed to throw a `SecurityError` exception.
-The implementation is also allowed to add noise to the result and limit the rate of result computation.
 
 In the rest of this section we look at two potential sources of information leak and show how an implementation can address them.
 
