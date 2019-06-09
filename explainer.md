@@ -1,6 +1,6 @@
 # JavaScript agent memory API
 
-Last updated: 2019.06.04
+Last updated: 2019.06.09
 
 ## tl;dr
 
@@ -110,7 +110,7 @@ The same is the case when the API is invoked in a worker because each worker has
 
 If there are multiple JavaScript agents or different-origin realms, then the API accounts only the objects of the same-origin realms that the current context can synchronously script with.
 We illustrate that on an example with two web pages and four iframes shown in figure below.
-Let’s assume that the top-level browsing contexts `foo.com/page1` and `foo.com/page2` are not related, i.e. one is not an opener of another. Thus there are two JavaScript agents consisting of six realms with total memory usage of 500MB
+Let’s assume that the top-level browsing contexts `a.foo.com/page1` and `a.foo.com/page2` are not related, i.e. one is not an opener of another. Thus there are two JavaScript agents consisting of six realms with total memory usage of 500MB
 
 ![Figure 1. Two web pages with four iframes and their memory usage.](/example.png)
 
@@ -146,13 +146,13 @@ console.log(result);
 // Console output:
 {
   current: {
-    url: 'https://foo.com/frame1',
+    url: 'https://a.foo.com/frame1',
     jsMemoryEstimate: 30*MB,
     jsMemoryRange: [20*MB, 300*MB]
   },
   other: [
     {
-      url: 'https://foo.com/page1',
+      url: 'https://a.foo.com/page1',
       jsMemoryEstimate: 170*MB,
       jsMemoryRange: [80*MB, 300*MB]
     }
@@ -210,7 +210,7 @@ An implementation of the API should account only the JavaScript objects that the
 That is the objects that can be read or called from the current realm.
 Additionally, the implementation is free to account internal system objects on the JavaScript heap that are necessary for supporting the accounted JavaScript objects (e.g. backing stores of arrays, hidden classes, closure environments, code objects) as long as that does not leak foreign origin information.
 
-If the implementation cannot guarantee that the result is not tainted with foreign origin information, then it is allowed to throw a `SecurityError` exception.
+If the implementation cannot guarantee that the result is not tainted with foreign origin information, then it must throw a `SecurityError` exception.
 
 In the rest of this section we look at two potential sources of information leak and show how an implementation can address them.
 
