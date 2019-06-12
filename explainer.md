@@ -1,6 +1,6 @@
 # JavaScript agent memory API
 
-Last updated: 2019.06.09
+Last updated: 2019.06.12
 
 ## tl;dr
 
