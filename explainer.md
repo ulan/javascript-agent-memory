@@ -1,4 +1,4 @@
-# JavaScript agent memory API
+# JavaScript Memory API
 
 Last updated: 2019.06.12
 
