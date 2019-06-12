@@ -26,10 +26,10 @@ No.
 
 ### 2.6. What information from the underlying platform, e.g. configuration data, is exposed by this specification to an origin?
 
-The origin can infer whether the underlying platform is 32-bit or 64-bit:
+The calling origin can infer whether the underlying platform is 32-bit or 64-bit:
 the result of the API on 64-bit systems will be larger than that on 32-bit systems.
 
-The origin can alrady [get](https://stackoverflow.com/questions/1741933/detect-64-bit-or-32-bit-windows-from-user-agent-or-javascript) that information now from `window.navigator`. 
+The origin can already [get](https://stackoverflow.com/questions/1741933/detect-64-bit-or-32-bit-windows-from-user-agent-or-javascript) that information now from `window.navigator`.
 
 ### 2.7. Does this specification allow an origin access to sensors on a user’s device
 
