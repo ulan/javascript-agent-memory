@@ -203,6 +203,20 @@ try {
 }
 ```
 
+## Trade-offs in API Design
+
+For any memory measurement API there are fundamental trade-offs between:
+- Security,
+- Completeness and accuracy of results,
+- Complexity of implementation.
+
+Relaxing the security requirements by allowing some information leaks between different origins would make implementation simpler.
+For example, relaxing the security model to site-based instead of origin-based yields much simpler implementation in browsers with site isolation.
+Another example is to allow information leaks and mitigate them by adding noise and delaying the results.
+
+This proposal provides strong security guarantee of no cross-origin information leaks.
+As a result this necessarilly complicates the implementation.
+
 
 ## Security Considerations
 
@@ -240,8 +254,9 @@ If resources of platform objects are allocated on JavaScript heap, then the impl
 Otherwise, we have the following cases:
 - **[fast]** *the total size is requested and the heap contains only one JavaScript agent consisting of same-origin realms *: in this case the implementation can simply return the heap size which is usually available as a counter.
 - **[fast]** *the API is invoked in a worker*: since each worker gets its own heap and consists of a single realm, both total size and detailed versions of the API will be fast.
-- **[slow]** *the total size is requested and the heap contains different-origin realms*: this case may require heap iteration or the implementation throws a `SecurityError` exception.
-- **[slow]** *per-frame sizes are requested in a window agent*: this case may require heap iteration or the implementation throws a NotSupportedError exception.
+- **[slow]** *the total size is requested and the heap contains different-origin realms*: this case may require either heap iteration, or heap segregation by origin, or accounting on allocation, or throwing a `SecurityError` exception.
+Realms trusting each other may opt-in to be treated as same-origin for the purposes of this API via `Memory-Allow-Origin` similar to [`Timing-Allow-Origin`](https://w3c.github.io/resource-timing/#sec-timing-allow-origin) or [`CORP: cross-origin`](https://github.com/whatwg/html/issues/4175#issuecomment-482734751).
+- **[slow]** *per-frame sizes are requested in a window agent*: require either heap iteration, or heap segregation by origin, or accounting on allocation, or throwing a `NotSupportedError` exception.
 
 In the slow cases, it may be possible to fold the heap iteration into the next garbage collection and thus reduce the cost of the heap iteration. If it is not possible, then it is probably better to throw an exception.
 
@@ -261,3 +276,8 @@ current: {
 },
 ```
 Note that this is currently problematic due to opaque responses from Fetch API.
+
+## See also
+
+The proposal was presented at [WebPerf WG F2F June 2019](https://docs.google.com/document/d/12ANc7fbKpjs__Qw_0DxM74u49276vTwRwCPyBxUkfBw/edit#heading=h.nraz045xllk0) meeting.
+Notes, slides, video are available [here](https://docs.google.com/document/d/1uQ7pXwuBv-1jitYou7TALJxV0tllXLxTyEjA2n1mSzY/edit#).
