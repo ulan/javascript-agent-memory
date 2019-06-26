@@ -135,7 +135,7 @@ try {
 ### Optional per-frame sizes
 
 The caller can request per-frame sizes by passing a `{detailed: true}` option.
-Invocation of the API in `frame1` of the previous example returns the size estimates for the same-origin frames accessible from `frame1`:
+Invocation of the API in `frame1` of the previous example returns the size estimates for the same-origin objects accessible from `frame1`:
 
 ```javascript
 // In frameA.foo.com context:
@@ -163,6 +163,9 @@ console.log(result);
   }
 }
 ```
+
+Attribution of objects to frames is implementation dependent if frames pass the objects to each other.
+See [realm_attribution.md](realm_attribution.md) for the discussion of this issue.
 
 A worker agent has a single realm.
 Thus, the `other` field of the result is empty for workers.
