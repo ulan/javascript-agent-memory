@@ -283,4 +283,4 @@ Note that this is currently problematic due to opaque responses from Fetch API.
 ## See also
 
 The proposal was presented at [WebPerf WG F2F June 2019](https://docs.google.com/document/d/12ANc7fbKpjs__Qw_0DxM74u49276vTwRwCPyBxUkfBw/edit#heading=h.nraz045xllk0) meeting.
-Notes, slides, video are available [here](https://docs.google.com/document/d/1uQ7pXwuBv-1jitYou7TALJxV0tllXLxTyEjA2n1mSzY/edit#).
+Notes, slides, video are available [here](https://docs.google.com/document/d/1uQ7pXwuBv-1jitYou7TALJxV0tllXLxTyEjA2n1mSzY/edit#bookmark=id.sagvdwcwhq1h).
