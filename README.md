@@ -1,3 +1,7 @@
+# Generalized and extended version of this proposal is available at [https://github.com/ulan/performance-measure-memory](https://github.com/ulan/performance-measure-memory)
+
+---
+
 # JavaScript agent memory API
 
 Proposal to add an API that estimates the amount of memory used by JavaScript objects of the current [JavaScript agent](https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-formalism).

@@ -1,3 +1,7 @@
+# Generalized and extended version of this proposal is available at [https://github.com/ulan/performance-measure-memory](https://github.com/ulan/performance-measure-memory)
+
+---
+
 # JavaScript Memory API
 
 Last updated: 2019.06.12
